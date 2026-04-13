@@ -2,39 +2,72 @@ import streamlit as st
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
-st.markdown("### Real-time Threat Detection using Machine Learning")
+
 st.set_page_config(page_title="Cybersecurity Threat Detection", layout="wide")
 
-st.title("🛡️ AI-Powered Cybersecurity Threat Detection System")
+# -------------------------------
+# TITLE
+# -------------------------------
+st.markdown(
+    "<h1 style='text-align: center; color: red;'>🛡️ Cyber Threat Detection Dashboard</h1>",
+    unsafe_allow_html=True
+)
 
-# Load model
-model = joblib.load("models/model.pkl")
+st.markdown("### Real-time Threat Detection using Machine Learning")
 
-# Load dataset
-df = pd.read_csv("data/kddcup.data_10_percent_corrected", header=None)
+# -------------------------------
+# LOAD MODEL
+# -------------------------------
+@st.cache_resource
+def load_model():
+    return joblib.load("models/model.pkl")
 
-st.subheader("📊 Raw Dataset Preview")
-st.write(df.head())
+model = load_model()
 
-# Sidebar
+# -------------------------------
+# SIDEBAR
+# -------------------------------
 st.sidebar.header("Controls")
-uploaded_file = st.sidebar.file_uploader("Upload Network Data CSV")
+
+uploaded_file = st.sidebar.file_uploader("📂 Upload Network Data CSV")
+
+sample_size = st.sidebar.slider("Select sample size", 500, 5000, 2000)
+
+# -------------------------------
+# LOAD DATA
+# -------------------------------
+def load_default_data():
+    try:
+        return pd.read_csv("data/sample.csv", header=None)
+    except:
+        return None
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file, header=None)
-    st.write("📂 Uploaded Data Preview")
-    st.write(df.head())
+    st.success("Uploaded file loaded successfully!")
+else:
+    df = load_default_data()
+    if df is None:
+        st.warning("⚠️ No dataset found. Please upload a CSV file.")
+        st.stop()
 
-sample_size = st.sidebar.slider("Select sample size", 1000, 10000, 3000)
+# -------------------------------
+# DATA PREVIEW
+# -------------------------------
+st.subheader("📊 Dataset Preview")
+st.write(df.head())
 
-# Sample data
-df_sample = df.sample(n=sample_size)
+# -------------------------------
+# SAMPLE DATA
+# -------------------------------
+df_sample = df.sample(n=min(sample_size, len(df)))
 
 st.subheader("📈 Sampled Data")
 st.write(df_sample.head())
 
-# Simple preprocessing (minimal for demo)
-# Load original column names (same as training)
+# -------------------------------
+# COLUMN NAMES (KDD DATASET)
+# -------------------------------
 columns = [
     "duration","protocol_type","service","flag","src_bytes","dst_bytes","land",
     "wrong_fragment","urgent","hot","num_failed_logins","logged_in","num_compromised",
@@ -51,55 +84,58 @@ columns = [
 
 df_sample.columns = columns
 
-# Drop label column if exists
+# -------------------------------
+# PREPROCESSING
+# -------------------------------
 if "label" in df_sample.columns:
     df_sample = df_sample.drop("label", axis=1)
 
-# Apply SAME encoding as training
 df_sample = pd.get_dummies(df_sample)
 
-# Align columns with model
+# Align with training features
 model_features = model.feature_names_in_
 df_sample = df_sample.reindex(columns=model_features, fill_value=0)
 
-# Align columns with model (important fix)
-model_features = model.feature_names_in_
-df_sample = df_sample.reindex(columns=model_features, fill_value=0)
-
-# Prediction
+# -------------------------------
+# PREDICTION
+# -------------------------------
 preds = model.predict(df_sample)
-
-results = pd.DataFrame({
-    "Prediction": preds
-})
 
 attack_count = (preds == 1).sum()
 normal_count = (preds == 0).sum()
 
-threat_ratio = attack_count / (attack_count + normal_count)
-threat_percent = (attack_count / (attack_count + normal_count)) * 100
-
-if threat_ratio > 0.7:
-    st.error(f"🚨 HIGH THREAT LEVEL: {threat_percent:.2f}% traffic is malicious")
-elif threat_ratio > 0.3:
-    st.warning(f"⚠️ MEDIUM THREAT LEVEL: {threat_percent:.2f}% traffic is malicious")
-else:
-    st.success("✅ LOW THREAT LEVEL")
-
-# Display metrics
+# -------------------------------
+# METRICS
+# -------------------------------
 col1, col2, col3 = st.columns(3)
 
 col1.metric("🚨 Attacks Detected", attack_count)
 col2.metric("✅ Normal Traffic", normal_count)
-col3.metric("Threat Percentage", f"{threat_percent:.2f}%")
 
-# System Status
+threat_percent = (attack_count / (attack_count + normal_count)) * 100
+col3.metric("⚠️ Threat %", f"{threat_percent:.2f}%")
+
+# -------------------------------
+# ALERT SYSTEM
+# -------------------------------
+if threat_percent > 70:
+    st.error(f"🚨 HIGH THREAT LEVEL: {threat_percent:.2f}% traffic is malicious")
+elif threat_percent > 30:
+    st.warning(f"⚠️ MEDIUM THREAT LEVEL: {threat_percent:.2f}% suspicious traffic")
+else:
+    st.success("✅ LOW THREAT LEVEL: Network is stable")
+
+# -------------------------------
+# SYSTEM STATUS
+# -------------------------------
 if attack_count > 0:
     st.warning("⚠️ Suspicious activity detected in network traffic")
 else:
     st.success("✅ Network operating normally")
 
-# Plot
+# -------------------------------
+# GRAPH
+# -------------------------------
 st.subheader("📊 Prediction Distribution")
 
 fig, ax = plt.subplots()
@@ -108,12 +144,15 @@ ax.set_title("Cyber Threat Detection Results")
 
 st.pyplot(fig)
 
-# Show results
+# -------------------------------
+# RESULTS TABLE
+# -------------------------------
 st.subheader("📄 Prediction Results")
+results = pd.DataFrame({"Prediction": preds})
 st.write(results.head(50))
-st.metric("Model Accuracy", "99.9%")
 
-st.success("System Running Successfully!")
-
+# -------------------------------
+# FOOTER
+# -------------------------------
 st.markdown("---")
 st.markdown("Developed by Varda | AI Cybersecurity Project")
