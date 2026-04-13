@@ -151,3 +151,7 @@ streamlit run app.py
 
 **Varda**
 CSE (AI/ML) Student
+
+
+⚠️ Note: Dataset is not included due to size constraints.  
+Download it from: http://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html
