@@ -1,3 +1,9 @@
+# Ignore large datasets
+data/kddcup.data_10_percent_corrected
 
-*.csv
-*.gz
+# Ignore system files
+__pycache__/
+*.pyc
+
+# Keep sample dataset
+!data/sample.csv
